@@ -31,8 +31,8 @@
 {
     DBSession* dbSession =
     [[DBSession alloc]
-      initWithAppKey:@"77yq2ynq28eialc"
-      appSecret:@"fam3k40ff5pod6b"
+      initWithAppKey:@"YOUR_DROPBOX_APPKEY"
+      appSecret:@"YOUR_DROPBOX_APPSECRET"
       root:kDBRootAppFolder]; // either kDBRootAppFolder or kDBRootDropbox
 
     [DBSession setSharedSession:dbSession];
