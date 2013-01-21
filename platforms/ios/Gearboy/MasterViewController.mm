@@ -253,18 +253,18 @@
 }
 
 - (void)downloadRomFromDropboxPath:(NSString *)path name:(NSString *)fileName{
-    [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+    [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
     [[self restClient] loadFile:path intoPath:[[self romPath] stringByAppendingPathComponent:fileName]];
 }
 
 - (void)restClient:(DBRestClient*)client loadedFile:(NSString*)localPath {
-    [MBProgressHUD hideHUDForView:self.view animated:YES];
+    [MBProgressHUD hideHUDForView:self.navigationController.view animated:YES];
     NSLog(@"File loaded into path: %@", [localPath lastPathComponent]);
     [self openRom:[localPath lastPathComponent]];
 }
 
 - (void)restClient:(DBRestClient*)client loadFileFailedWithError:(NSError*)error {
-    [MBProgressHUD hideHUDForView:self.view animated:YES];
+    [MBProgressHUD hideHUDForView:self.navigationController.view animated:YES];
     NSLog(@"There was an error loading the file - %@", error);
 }
 
