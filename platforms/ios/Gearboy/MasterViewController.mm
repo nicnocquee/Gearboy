@@ -61,6 +61,8 @@
     [self refreshLocal];
        
     self.sections = @[NSLocalizedString(@"Local", nil), NSLocalizedString(@"Dropbox", nil)];
+    
+    [self setupBarButtonItem];
 }
 
 - (void)viewDidUnload
@@ -75,6 +77,15 @@
     } else {
         return (interfaceOrientation == UIInterfaceOrientationPortrait) || (interfaceOrientation == UIInterfaceOrientationPortraitUpsideDown);
     }
+}
+
+- (void)setupBarButtonItem {
+    NSString *title = NSLocalizedString(@"Link Dropbox", nil);
+    if ([[DBSession sharedSession] isLinked]) {
+        title = NSLocalizedString(@"Unlink Dropbox", nil);
+    }
+    UIBarButtonItem *leftButton = [[UIBarButtonItem alloc] initWithTitle:title style:UIBarButtonItemStyleBordered target:self action:@selector(linkUnlinkButtonTapped:)];
+    [self.navigationItem setLeftBarButtonItem:leftButton];
 }
 
 #pragma mark - Table View
@@ -202,6 +213,7 @@
 }
 
 - (void)dropboxDidLinked {
+    [self setupBarButtonItem];
     [[self restClient] loadMetadata:@"/"];
 }
 
@@ -259,6 +271,17 @@
 - (void)refreshList:(id)sender {
     [self refreshLocal];
     [self dropboxDidLinked];
+}
+
+#pragma mark - Button
+
+- (void)linkUnlinkButtonTapped:(id)sender {
+    if ([[DBSession sharedSession] isLinked]) {
+        [[DBSession sharedSession] unlinkAll];
+        [self setupBarButtonItem];
+    } else {
+        [self linkToDropbox];
+    }
 }
 
 @end
