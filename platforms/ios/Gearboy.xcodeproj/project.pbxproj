@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03425D0516AD24A70009B895 /* MBProgressHUD.m in Sources */ = {isa = PBXBuildFile; fileRef = 03425D0416AD24A70009B895 /* MBProgressHUD.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
+		03A19F1316AD1AD200821B7A /* DropboxSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03A19F1216AD1AD200821B7A /* DropboxSDK.framework */; };
+		03A19F1516AD1AE300821B7A /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03A19F1416AD1AE300821B7A /* Security.framework */; };
 		660F501B15F9615800617A2D /* gb~ipad.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 660F501915F9615800617A2D /* gb~ipad.jpg */; };
 		660F501C15F9615800617A2D /* gb@2x~ipad.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 660F501A15F9615800617A2D /* gb@2x~ipad.jpg */; };
 		662E1E1F15F9499600C7FF66 /* Audio.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 662E1DF315F9499600C7FF66 /* Audio.cpp */; };
@@ -73,6 +76,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		03425D0316AD24A70009B895 /* MBProgressHUD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MBProgressHUD.h; sourceTree = "<group>"; };
+		03425D0416AD24A70009B895 /* MBProgressHUD.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MBProgressHUD.m; sourceTree = "<group>"; };
+		03A19F1216AD1AD200821B7A /* DropboxSDK.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = DropboxSDK.framework; sourceTree = "<group>"; };
+		03A19F1416AD1AE300821B7A /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		660F501915F9615800617A2D /* gb~ipad.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = "gb~ipad.jpg"; path = "img/gb~ipad.jpg"; sourceTree = "<group>"; };
 		660F501A15F9615800617A2D /* gb@2x~ipad.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = "gb@2x~ipad.jpg"; path = "img/gb@2x~ipad.jpg"; sourceTree = "<group>"; };
 		662E1DF315F9499600C7FF66 /* Audio.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Audio.cpp; path = ../../src/Audio.cpp; sourceTree = "<group>"; };
@@ -191,6 +198,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				03A19F1516AD1AE300821B7A /* Security.framework in Frameworks */,
 				66D4BA7F15FABBC500D4937F /* QuartzCore.framework in Frameworks */,
 				66D4BA7D15FABB9100D4937F /* OpenGLES.framework in Frameworks */,
 				66D4BA7B15FABB8600D4937F /* AudioToolbox.framework in Frameworks */,
@@ -199,12 +207,30 @@
 				66DCB34E15F940CC0076F6F6 /* Foundation.framework in Frameworks */,
 				66DCB35015F940CC0076F6F6 /* CoreGraphics.framework in Frameworks */,
 				66D4BA7415FABB4000D4937F /* SDL.framework in Frameworks */,
+				03A19F1316AD1AD200821B7A /* DropboxSDK.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		03425D0116AD24850009B895 /* Vendors */ = {
+			isa = PBXGroup;
+			children = (
+				03425D0616AD24AB0009B895 /* MBProgressHUD */,
+			);
+			name = Vendors;
+			sourceTree = "<group>";
+		};
+		03425D0616AD24AB0009B895 /* MBProgressHUD */ = {
+			isa = PBXGroup;
+			children = (
+				03425D0316AD24A70009B895 /* MBProgressHUD.h */,
+				03425D0416AD24A70009B895 /* MBProgressHUD.m */,
+			);
+			name = MBProgressHUD;
+			sourceTree = "<group>";
+		};
 		660F501815F9614300617A2D /* Images */ = {
 			isa = PBXGroup;
 			children = (
@@ -314,6 +340,7 @@
 		66DCB33C15F940CC0076F6F6 = {
 			isa = PBXGroup;
 			children = (
+				03425D0116AD24850009B895 /* Vendors */,
 				662E1DF215F9496700C7FF66 /* Audio */,
 				662E1DF115F9495F00C7FF66 /* Core */,
 				66DCB35115F940CC0076F6F6 /* Gearboy */,
@@ -333,6 +360,8 @@
 		66DCB34A15F940CC0076F6F6 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				03A19F1416AD1AE300821B7A /* Security.framework */,
+				03A19F1216AD1AD200821B7A /* DropboxSDK.framework */,
 				66D4BA7A15FABB8600D4937F /* AudioToolbox.framework */,
 				66D4BA7815FABB7B00D4937F /* CoreAudio.framework */,
 				66DCB34F15F940CC0076F6F6 /* CoreGraphics.framework */,
@@ -502,6 +531,7 @@
 				66D34FE915FFDF410046912E /* timer.mm in Sources */,
 				66D34FF115FFEC480046912E /* EmulatorInput.mm in Sources */,
 				66FB445F161866DA00F805ED /* MultiMBC1MemoryRule.cpp in Sources */,
+				03425D0516AD24A70009B895 /* MBProgressHUD.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -624,6 +654,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SRCROOT)/SDL\"",
+					"\"$(SRCROOT)\"",
 				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
@@ -639,6 +670,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SRCROOT)/SDL\"",
+					"\"$(SRCROOT)\"",
 				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";

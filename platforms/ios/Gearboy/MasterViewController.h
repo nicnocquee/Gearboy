@@ -23,12 +23,15 @@
 
 @interface MasterViewController : UITableViewController
 {
-    NSArray* listData;
-    NSMutableDictionary *sections;  
+    NSMutableArray* listData;
+    NSArray *sections;  
 }
 
 @property (strong, nonatomic) DetailViewController *detailViewController;
-@property (strong, nonatomic) NSArray *listData;
-@property (strong, nonatomic) NSMutableDictionary *sections;
+@property (strong, nonatomic) NSMutableArray *listData;
+@property (strong, nonatomic) NSMutableArray *dropboxFiles;
+@property (strong, nonatomic) NSArray *sections;
+
+- (void)dropboxDidLinked;
 
 @end

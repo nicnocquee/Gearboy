@@ -20,7 +20,7 @@
 #import "AppDelegate.h"
 #import "MasterViewController.h"
 #import "DetailViewController.h"
-
+#import <DropboxSDK/DropboxSDK.h>
 
 
 @implementation AppDelegate
@@ -29,6 +29,15 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+    DBSession* dbSession =
+    [[DBSession alloc]
+      initWithAppKey:@"77yq2ynq28eialc"
+      appSecret:@"fam3k40ff5pod6b"
+      root:kDBRootAppFolder]; // either kDBRootAppFolder or kDBRootDropbox
+
+    [DBSession setSharedSession:dbSession];
+    
+    
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     // Override point for customization after application launch.
     if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone) {
@@ -88,6 +97,20 @@
 - (void)applicationWillTerminate:(UIApplication *)application
 {
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+}
+
+- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url {
+    if ([[DBSession sharedSession] handleOpenURL:url]) {
+        if ([[DBSession sharedSession] isLinked]) {
+            NSLog(@"App linked successfully!");
+            // At this point you can start making API calls
+            MasterViewController *master = (MasterViewController *)[self.navigationController.viewControllers objectAtIndex:0];
+            [master dropboxDidLinked];
+        }
+        return YES;
+    }
+    // Add whatever other url handling code your app requires here
+    return NO;
 }
 
 @end

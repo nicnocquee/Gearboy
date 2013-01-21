@@ -21,6 +21,16 @@
 
 #import "DetailViewController.h"
 
+#import <DropboxSDK/DropboxSDK.h>
+
+#import "MBProgressHUD.h"
+
+@interface MasterViewController () <DBRestClientDelegate> {
+    DBRestClient *restClient;
+}
+
+@end
+
 @implementation MasterViewController
 
 @synthesize listData;
@@ -43,42 +53,14 @@
 {
     [super viewDidLoad];
     
-    NSArray *homeDomains = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    NSString *documentsDirectory = [homeDomains objectAtIndex:0];
+    UIRefreshControl *pullToRefreshControl = [[UIRefreshControl alloc] init];
+    [pullToRefreshControl addTarget:self action:@selector(refreshList:) forControlEvents:UIControlEventValueChanged];
+    [self setRefreshControl:pullToRefreshControl];
     
-    NSFileManager *fileManager = [[NSFileManager alloc] init];
-    NSArray *files = [fileManager contentsOfDirectoryAtPath:documentsDirectory
-                                                      error:nil];
-    
-    self.listData = files;    
-    self.sections = [[NSMutableDictionary alloc] init];
-    
-    BOOL found;
-    
-    for (NSString* rom in self.listData)
-    {
-        NSString* c = [[rom substringToIndex:1] uppercaseString];
-        
-        found = NO;
-        
-        for (NSString* str in [self.sections allKeys])
-        {
-            if ([str isEqualToString:c])
-            {
-                found = YES;
-            }
-        }
-        
-        if (!found)
-        {
-            [self.sections setValue:[[NSMutableArray alloc] init] forKey:c];
-        }
-    }
-    
-    for (NSString* rom in self.listData)
-    {
-        [[self.sections objectForKey:[[rom substringToIndex:1] uppercaseString]] addObject:rom];
-    }
+    self.listData = [NSMutableArray array];
+    [self refreshLocal];
+       
+    self.sections = @[NSLocalizedString(@"Local", nil), NSLocalizedString(@"Dropbox", nil)];
 }
 
 - (void)viewDidUnload
@@ -99,21 +81,20 @@
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
-    return [[self.sections allKeys] count];
+    return self.sections.count;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
-    return [[[self.sections allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)] objectAtIndex:section];
+    return [self.sections objectAtIndex:section];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return [[self.sections valueForKey:[[[self.sections allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)] objectAtIndex:section]] count];
-}
-
-- (NSArray *)sectionIndexTitlesForTableView:(UITableView *)tableView {
-    return [[self.sections allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    if (section == 0) {
+        return self.listData.count;
+    }
+    return self.dropboxFiles.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -128,9 +109,15 @@
         }
     }
     
-    NSString* rom = [[self.sections valueForKey:[[[self.sections allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)] objectAtIndex:indexPath.section]] objectAtIndex:indexPath.row];
-
-    cell.textLabel.text = [rom stringByDeletingPathExtension];
+    if (indexPath.section == 0) {
+        NSString* rom = [self.listData objectAtIndex:indexPath.row];
+        
+        cell.textLabel.text = [rom stringByDeletingPathExtension];
+    } else {
+        NSString *rom = [[self.dropboxFiles objectAtIndex:indexPath.row] filename];
+        cell.textLabel.text = rom;
+    }
+    
     cell.textLabel.adjustsFontSizeToFitWidth = YES;
     UIView* blackColorView = [[UIView alloc] init];
     blackColorView.backgroundColor = [UIColor blackColor];
@@ -145,13 +132,25 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    NSString* rom = [[self.sections valueForKey:[[[self.sections allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)] objectAtIndex:indexPath.section]] objectAtIndex:indexPath.row];
-    
+    if (indexPath.section == 0) {
+        NSString* rom = [self.listData objectAtIndex:indexPath.row];
+        [self openRom:rom];
+    } else {
+        NSString *rom = [self pathToDownloadedRomForIndexPath:indexPath];
+        if (rom) {
+            [self openRom:[rom lastPathComponent]];
+        } else {
+            [self downloadRomFromDropboxPath:[[self.dropboxFiles objectAtIndex:indexPath.row] path] name:[[self.dropboxFiles objectAtIndex:indexPath.row] filename]];
+        }
+    }
+}
+
+- (void)openRom:(NSString *)rom {
     if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone) {
-	    if (!self.detailViewController) {
-	        self.detailViewController = [[DetailViewController alloc] initWithNibName:@"DetailViewController_iPhone" bundle:nil];
-	    }
-	    self.detailViewController.detailItem = rom;
+        if (!self.detailViewController) {
+            self.detailViewController = [[DetailViewController alloc] initWithNibName:@"DetailViewController_iPhone" bundle:nil];
+        }
+        self.detailViewController.detailItem = rom;
         [self.navigationController pushViewController:self.detailViewController animated:YES];
     } else {
         self.detailViewController.detailItem = rom;
@@ -160,12 +159,106 @@
 
 - (void)viewDidAppear:(BOOL)animated
 {
+    [self linkToDropbox];
+    [self refreshLocal];
     [self.detailViewController.theGLViewController.theEmulator pause];
 }
 
 - (void)viewWillDisappear:(BOOL)animated
 {
     [self.detailViewController.theGLViewController.theEmulator resume];
+}
+
+#pragma mark - Local
+
+- (NSString *)romPath {
+    NSArray *homeDomains = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    return [homeDomains objectAtIndex:0];
+}
+
+- (void)refreshLocal {
+    [self.listData removeAllObjects];
+    NSString *documentsDirectory = [self romPath];
+    
+    NSFileManager *fileManager = [[NSFileManager alloc] init];
+    NSArray *files = [fileManager contentsOfDirectoryAtPath:documentsDirectory
+                                                      error:nil];
+    
+    for (NSString *fileName in files) {
+        if (![fileName.pathExtension isEqualToString:@"gearboy"]) {
+            [self.listData addObject:fileName];
+        }
+    }
+}
+
+#pragma mark - Dropbox
+
+- (void)linkToDropbox {
+    if (![[DBSession sharedSession] isLinked]) {
+        [[DBSession sharedSession] linkFromController:self];
+    } else {
+        [self dropboxDidLinked];
+    }
+}
+
+- (void)dropboxDidLinked {
+    [[self restClient] loadMetadata:@"/"];
+}
+
+- (DBRestClient *)restClient {
+    if (!restClient) {
+        restClient =
+        [[DBRestClient alloc] initWithSession:[DBSession sharedSession]];
+        restClient.delegate = self;
+    }
+    return restClient;
+}
+
+- (void)restClient:(DBRestClient *)client loadedMetadata:(DBMetadata *)metadata {
+    if (metadata.isDirectory) {
+        NSLog(@"Folder '%@' contains:", metadata.path);
+        self.dropboxFiles = [NSMutableArray arrayWithArray:metadata.contents];
+        [self.tableView reloadData];
+        for (DBMetadata *file in metadata.contents) {
+            NSLog(@"\t%@", file.filename);
+        }
+    }
+    [self.refreshControl endRefreshing];
+}
+
+- (void)restClient:(DBRestClient *)client loadMetadataFailedWithError:(NSError *)error {
+    
+    NSLog(@"Error loading metadata: %@", error);
+    [self.refreshControl endRefreshing];
+}
+
+- (NSString *)pathToDownloadedRomForIndexPath:(NSIndexPath *)indexPath {
+    DBMetadata *file = [self.dropboxFiles objectAtIndex:indexPath.row];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:[[self romPath] stringByAppendingPathComponent:file.filename]]) {
+        return [[self romPath] stringByAppendingPathComponent:file.filename];
+    }
+    return nil;
+}
+
+- (void)downloadRomFromDropboxPath:(NSString *)path name:(NSString *)fileName{
+    [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+    [[self restClient] loadFile:path intoPath:[[self romPath] stringByAppendingPathComponent:fileName]];
+}
+
+- (void)restClient:(DBRestClient*)client loadedFile:(NSString*)localPath {
+    [MBProgressHUD hideHUDForView:self.view animated:YES];
+    NSLog(@"File loaded into path: %@", [localPath lastPathComponent]);
+    [self openRom:[localPath lastPathComponent]];
+}
+
+- (void)restClient:(DBRestClient*)client loadFileFailedWithError:(NSError*)error {
+    [MBProgressHUD hideHUDForView:self.view animated:YES];
+    NSLog(@"There was an error loading the file - %@", error);
+}
+
+- (void)refreshList:(id)sender {
+    [self refreshLocal];
+    [self dropboxDidLinked];
 }
 
 @end
