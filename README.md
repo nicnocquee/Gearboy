@@ -1,6 +1,20 @@
+★★ Dropbox Support
+------------------
+
+
+1. Create an app in Dropbox's [My Apps page](https://www.dropbox.com/developers/apps).
+2. Replace YOUR_DROPBOX_APPKEY and YOUR_DROPBOX_APPSECRET in AppDelegate.mm with your app's key and secret.
+2. Replace APP_KEY in Gearboy-Info.plist
+
+Then simply put the ROMs in the app dropbox folder.
+
+----------
+
+
 Gearboy
 =======
 <b>Copyright &copy; 2012 by Ignacio Sanchez</b>
+
 
 ----------
 
