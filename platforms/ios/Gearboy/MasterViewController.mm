@@ -57,8 +57,6 @@
 {
     [super viewDidLoad];
     
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
-    
     UIRefreshControl *pullToRefreshControl = [[UIRefreshControl alloc] init];
     [pullToRefreshControl addTarget:self action:@selector(refreshList:) forControlEvents:UIControlEventValueChanged];
     [self setRefreshControl:pullToRefreshControl];
@@ -329,13 +327,7 @@
     }
 }
 
-#pragma mark - Enter background
-
-- (void)appWillEnterBackground:(NSNotification *)notification {
-    if (isSyncingSaveFile) {
-        
-    }
-}
+#pragma mark - Sync save file
 
 - (void)syncSaveFileForROM:(NSString *)rom {
     NSString *saveFile = [rom stringByAppendingPathExtension:@"gearboy"];
