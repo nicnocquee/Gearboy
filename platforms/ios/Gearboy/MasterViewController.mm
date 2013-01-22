@@ -225,12 +225,16 @@
 }
 
 - (DBRestClient *)restClient {
-    if (!restClient) {
-        restClient =
-        [[DBRestClient alloc] initWithSession:[DBSession sharedSession]];
-        restClient.delegate = self;
+    if ([[DBSession sharedSession] isLinked]) {
+        if (!restClient) {
+            restClient =
+            [[DBRestClient alloc] initWithSession:[DBSession sharedSession]];
+            restClient.delegate = self;
+        }
+        return restClient;
     }
-    return restClient;
+    [self.refreshControl endRefreshing];
+    return nil;
 }
 
 - (void)restClient:(DBRestClient *)client loadedMetadata:(DBMetadata *)metadata {
@@ -322,6 +326,11 @@
     if ([[DBSession sharedSession] isLinked]) {
         [[DBSession sharedSession] unlinkAll];
         [self setupBarButtonItem];
+        self.allDropboxFiles = nil;
+        self.saveFiles = nil;
+        self.dropboxFiles = nil;
+        restClient = nil;
+        [self.tableView reloadData];
     } else {
         [self linkToDropbox];
     }
