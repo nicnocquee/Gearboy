@@ -27,6 +27,10 @@
 
 @interface MasterViewController () <DBRestClientDelegate> {
     DBRestClient *restClient;
+    BOOL isDownloadingSaveFile;
+    BOOL isDownloadingROM;
+    BOOL isSyncingSaveFile;
+    UIBackgroundTaskIdentifier backgroundTaskIdentifier;
 }
 
 @end
@@ -52,6 +56,8 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
     
     UIRefreshControl *pullToRefreshControl = [[UIRefreshControl alloc] init];
     [pullToRefreshControl addTarget:self action:@selector(refreshList:) forControlEvents:UIControlEventValueChanged];
@@ -151,7 +157,7 @@
         if (rom) {
             [self openRom:[rom lastPathComponent]];
         } else {
-            [self downloadRomFromDropboxPath:[[self.dropboxFiles objectAtIndex:indexPath.row] path] name:[[self.dropboxFiles objectAtIndex:indexPath.row] filename]];
+            [self downloadRomFromDropboxFile:[self.dropboxFiles objectAtIndex:indexPath.row]];
         }
     }
 }
@@ -173,6 +179,9 @@
     [self linkToDropbox];
     [self refreshLocal];
     [self.detailViewController.theGLViewController.theEmulator pause];
+    if (self.detailViewController.detailItem) {
+        [self syncSaveFileForROM:self.detailViewController.detailItem];
+    }
 }
 
 - (void)viewWillDisappear:(BOOL)animated
@@ -196,7 +205,7 @@
                                                       error:nil];
     
     for (NSString *fileName in files) {
-        if (![fileName.pathExtension isEqualToString:@"gearboy"]) {
+        if ([fileName.pathExtension isEqualToString:@"gb"] || [fileName.pathExtension isEqualToString:@"gbc"]) { // let's just show gb and gbc
             [self.listData addObject:fileName];
         }
     }
@@ -229,11 +238,24 @@
 - (void)restClient:(DBRestClient *)client loadedMetadata:(DBMetadata *)metadata {
     if (metadata.isDirectory) {
         NSLog(@"Folder '%@' contains:", metadata.path);
-        self.dropboxFiles = [NSMutableArray arrayWithArray:metadata.contents];
-        [self.tableView reloadData];
+        self.allDropboxFiles = [NSMutableArray arrayWithArray:metadata.contents];
+        if (!self.dropboxFiles) {
+            self.dropboxFiles = [NSMutableArray array];
+        } else [self.dropboxFiles removeAllObjects];
+        
+        if (!self.saveFiles) {
+            self.saveFiles = [NSMutableDictionary dictionary];
+        } else [self.saveFiles removeAllObjects];
+        
         for (DBMetadata *file in metadata.contents) {
             NSLog(@"\t%@", file.filename);
+            if ([file.filename.pathExtension isEqualToString:@"gb"]||[file.filename.pathExtension isEqualToString:@"gbc"]) {
+                [self.dropboxFiles addObject:file];
+            } else if ([file.filename.pathExtension isEqualToString:@"gearboy"]) {
+                [self.saveFiles setObject:file forKey:file.filename];
+            }
         }
+        [self.tableView reloadData];
     }
     [self.refreshControl endRefreshing];
 }
@@ -252,15 +274,38 @@
     return nil;
 }
 
-- (void)downloadRomFromDropboxPath:(NSString *)path name:(NSString *)fileName{
+- (void)downloadRomFromDropboxFile:(DBMetadata *)dropboxFile{
     [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-    [[self restClient] loadFile:path intoPath:[[self romPath] stringByAppendingPathComponent:fileName]];
+    isDownloadingROM = YES;
+    [[self restClient] loadFile:dropboxFile.path intoPath:[[self romPath] stringByAppendingPathComponent:dropboxFile.filename]];
+    
+    if ([self.saveFiles.allKeys containsObject:[dropboxFile.filename stringByAppendingPathExtension:@"gearboy"]]) {
+        NSLog(@"Downloading save data too ...");
+        DBMetadata *saveFile = [self.saveFiles objectForKey:[dropboxFile.filename stringByAppendingPathExtension:@"gearboy"]];
+        isDownloadingSaveFile = YES;
+        [[self restClient] loadFile:saveFile.path
+                           intoPath:[[self romPath] stringByAppendingPathComponent:saveFile.filename]];
+    }
+    
+     
 }
 
 - (void)restClient:(DBRestClient*)client loadedFile:(NSString*)localPath {
-    [MBProgressHUD hideHUDForView:self.navigationController.view animated:YES];
     NSLog(@"File loaded into path: %@", [localPath lastPathComponent]);
-    [self openRom:[localPath lastPathComponent]];
+    if (![localPath.pathExtension isEqualToString:@"gearboy"]) {
+        isDownloadingROM = NO;
+        if (!isDownloadingSaveFile) {
+            [MBProgressHUD hideHUDForView:self.navigationController.view animated:YES];
+            [self openRom:[localPath lastPathComponent]];
+        }
+    } else {
+        isDownloadingSaveFile = NO;
+        if (!isDownloadingROM) {
+            [MBProgressHUD hideHUDForView:self.navigationController.view animated:YES];
+            [self openRom:[[localPath lastPathComponent] stringByDeletingPathExtension]];
+        }
+    }
+    
 }
 
 - (void)restClient:(DBRestClient*)client loadFileFailedWithError:(NSError*)error {
@@ -281,6 +326,66 @@
         [self setupBarButtonItem];
     } else {
         [self linkToDropbox];
+    }
+}
+
+#pragma mark - Enter background
+
+- (void)appWillEnterBackground:(NSNotification *)notification {
+    if (isSyncingSaveFile) {
+        
+    }
+}
+
+- (void)syncSaveFileForROM:(NSString *)rom {
+    NSString *saveFile = [rom stringByAppendingPathExtension:@"gearboy"];
+    NSString *pathToSaveFile = [[self romPath] stringByAppendingPathComponent:saveFile];
+    NSLog(@"Sync save file: %@ in path: %@", saveFile, pathToSaveFile);
+    if ([[NSFileManager defaultManager] fileExistsAtPath:pathToSaveFile]) {
+        NSString *rev = nil;
+        if ([self.saveFiles.allKeys containsObject:saveFile]) {
+            DBMetadata *file = [self.saveFiles objectForKey:saveFile];
+            rev = file.rev;
+        }
+        isSyncingSaveFile = YES;
+        [[self restClient] uploadFile:saveFile
+                               toPath:@"/"
+                        withParentRev:rev
+                             fromPath:pathToSaveFile];
+    }
+}
+
+- (void)syncSaveFileOfCurrentROMWithBackgroundIdentifier:(UIBackgroundTaskIdentifier)identifier {
+    if (!isSyncingSaveFile) {
+        if (self.detailViewController.detailItem) {
+            [self.detailViewController.theGLViewController.theEmulator pause];
+            backgroundTaskIdentifier = identifier;
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+            [self syncSaveFileForROM:self.detailViewController.detailItem];
+        }
+    }
+}
+
+#pragma mark - Upload delegate
+
+- (void)restClient:(DBRestClient*)client uploadedFile:(NSString*)destPath
+              from:(NSString*)srcPath metadata:(DBMetadata*)metadata {
+    isSyncingSaveFile = NO;
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+    NSLog(@"File uploaded successfully to path: %@", metadata.path);
+    if (backgroundTaskIdentifier != UIBackgroundTaskInvalid) {
+        [[UIApplication sharedApplication] endBackgroundTask:backgroundTaskIdentifier];
+        backgroundTaskIdentifier = UIBackgroundTaskInvalid;
+    }
+}
+
+- (void)restClient:(DBRestClient*)client uploadFileFailedWithError:(NSError*)error {
+    isSyncingSaveFile = NO;
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+    NSLog(@"File upload failed with error - %@", error);
+    if (backgroundTaskIdentifier != UIBackgroundTaskInvalid) {
+        [[UIApplication sharedApplication] endBackgroundTask:backgroundTaskIdentifier];
+        backgroundTaskIdentifier = UIBackgroundTaskInvalid;
     }
 }
 

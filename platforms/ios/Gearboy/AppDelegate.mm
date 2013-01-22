@@ -22,6 +22,11 @@
 #import "DetailViewController.h"
 #import <DropboxSDK/DropboxSDK.h>
 
+@interface AppDelegate () {
+    __block UIBackgroundTaskIdentifier bgTask;
+}
+
+@end
 
 @implementation AppDelegate
 
@@ -81,6 +86,15 @@
 {
     // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later. 
     // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+    bgTask = [application beginBackgroundTaskWithExpirationHandler:^{
+        // Clean up any unfinished task business by marking where you.
+        // stopped or ending the task outright.
+        [application endBackgroundTask:bgTask];
+        bgTask = UIBackgroundTaskInvalid;
+    }];
+    
+    MasterViewController *master = (MasterViewController *)[self.navigationController.viewControllers objectAtIndex:0];
+    [master syncSaveFileOfCurrentROMWithBackgroundIdentifier:bgTask];
 }
 
 - (void)applicationWillEnterForeground:(UIApplication *)application

@@ -30,8 +30,10 @@
 @property (strong, nonatomic) DetailViewController *detailViewController;
 @property (strong, nonatomic) NSMutableArray *listData;
 @property (strong, nonatomic) NSMutableArray *dropboxFiles;
+@property (strong , nonatomic) NSArray *allDropboxFiles;
+@property (strong, nonatomic) NSMutableDictionary *saveFiles;
 @property (strong, nonatomic) NSArray *sections;
 
 - (void)dropboxDidLinked;
-
+- (void)syncSaveFileOfCurrentROMWithBackgroundIdentifier:(UIBackgroundTaskIdentifier)identifier;
 @end
