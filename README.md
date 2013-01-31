@@ -1,4 +1,4 @@
-★★ Dropbox Support
+★★ Download ROMs from Dropbox
 ------------------
 
 
@@ -10,6 +10,12 @@ Then simply put the ROMs in the app dropbox folder.
 
 ----------
 
+★★ Dropbox Sync
+---------------
+
+Play Pokemon like a Boss. Play on iPhone. Then continue on iPad. Thanks to Dropbox Sync. Simply tap "Sync to Dropbox" to save your game to Dropbox folder.
+
+----------
 
 Gearboy
 =======
