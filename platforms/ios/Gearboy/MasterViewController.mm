@@ -25,11 +25,13 @@
 
 #import "MBProgressHUD.h"
 
-@interface MasterViewController () <DBRestClientDelegate> {
+@interface MasterViewController () <DBRestClientDelegate, UIAlertViewDelegate> {
     DBRestClient *restClient;
     BOOL isDownloadingSaveFile;
     BOOL isDownloadingROM;
     BOOL isSyncingSaveFile;
+    BOOL continueOpenROM;
+    BOOL isGettingList;
     UIBackgroundTaskIdentifier backgroundTaskIdentifier;
 }
 
@@ -177,9 +179,6 @@
     [self linkToDropbox];
     [self refreshLocal];
     [self.detailViewController.theGLViewController.theEmulator pause];
-    if (self.detailViewController.detailItem) {
-        [self syncSaveFileForROM:self.detailViewController.detailItem];
-    }
 }
 
 - (void)viewWillDisappear:(BOOL)animated
@@ -221,7 +220,10 @@
 
 - (void)dropboxDidLinked {
     [self setupBarButtonItem];
-    [[self restClient] loadMetadata:@"/"];
+    if (!isGettingList) {
+        isGettingList = YES;
+        [[self restClient] loadMetadata:@"/"];
+    }
 }
 
 - (DBRestClient *)restClient {
@@ -241,6 +243,7 @@
     if (metadata.isDirectory) {
         NSLog(@"Folder '%@' contains:", metadata.path);
         self.allDropboxFiles = [NSMutableArray arrayWithArray:metadata.contents];
+        
         if (!self.dropboxFiles) {
             self.dropboxFiles = [NSMutableArray array];
         } else [self.dropboxFiles removeAllObjects];
@@ -249,23 +252,51 @@
             self.saveFiles = [NSMutableDictionary dictionary];
         } else [self.saveFiles removeAllObjects];
         
+        if (!self.updatedSaveFiles) {
+            self.updatedSaveFiles = [NSMutableArray array];
+        } else [self.updatedSaveFiles removeAllObjects];
+        
         for (DBMetadata *file in metadata.contents) {
             NSLog(@"\t%@", file.filename);
             if ([file.filename.pathExtension isEqualToString:@"gb"]||[file.filename.pathExtension isEqualToString:@"gbc"]) {
                 [self.dropboxFiles addObject:file];
             } else if ([file.filename.pathExtension isEqualToString:@"gearboy"]) {
                 [self.saveFiles setObject:file forKey:file.filename];
+                NSString *pathToLocalSaveFile = [[self romPath] stringByAppendingPathComponent:file.filename];
+                if ([[NSFileManager defaultManager] fileExistsAtPath:pathToLocalSaveFile]) {
+                    NSDate *localLastModified = [[[NSFileManager defaultManager] attributesOfItemAtPath:pathToLocalSaveFile error:nil] objectForKey:NSFileModificationDate];
+                    NSDate *dropboxLastModified = file.lastModifiedDate;
+                    NSLog(@"Local: %@ Dropbox: %@", localLastModified, dropboxLastModified);
+                    if ([dropboxLastModified compare:localLastModified]==NSOrderedDescending) {
+                        [self.updatedSaveFiles addObject:file];
+                    }
+                } else {
+                    [self downloadSaveFileForROM:file];
+                }
             }
         }
         [self.tableView reloadData];
+        
+        if (self.updatedSaveFiles.count > 0) {
+            NSString *romNames = @"";
+            for (DBMetadata *file in self.updatedSaveFiles) {
+                romNames = [romNames stringByAppendingFormat:@"%@, ", [file.filename stringByDeletingPathExtension]];
+            }
+            romNames = [romNames substringToIndex:romNames.length-2];
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedString(@"Save File Syncing", nil) message:[NSString stringWithFormat:NSLocalizedString(@"Save file for %1$@  in Dropbox is newer than the one in this device. Would you like to update the one in this device?", nil), romNames] delegate:self cancelButtonTitle:NSLocalizedString(@"No", nil) otherButtonTitles:NSLocalizedString(@"Sync", nil), nil];
+            [alert show];
+        }
     }
     [self.refreshControl endRefreshing];
+    isGettingList = NO;
 }
 
 - (void)restClient:(DBRestClient *)client loadMetadataFailedWithError:(NSError *)error {
     
     NSLog(@"Error loading metadata: %@", error);
+    [self showErrorAlertWithMessage:[NSString stringWithFormat:@"File lists error: %@", error.localizedDescription]];
     [self.refreshControl endRefreshing];
+    isGettingList = NO;
 }
 
 - (NSString *)pathToDownloadedRomForIndexPath:(NSIndexPath *)indexPath {
@@ -282,29 +313,32 @@
     [[self restClient] loadFile:dropboxFile.path intoPath:[[self romPath] stringByAppendingPathComponent:dropboxFile.filename]];
     
     if ([self.saveFiles.allKeys containsObject:[dropboxFile.filename stringByAppendingPathExtension:@"gearboy"]]) {
-        NSLog(@"Downloading save data too ...");
-        DBMetadata *saveFile = [self.saveFiles objectForKey:[dropboxFile.filename stringByAppendingPathExtension:@"gearboy"]];
-        isDownloadingSaveFile = YES;
-        [[self restClient] loadFile:saveFile.path
-                           intoPath:[[self romPath] stringByAppendingPathComponent:saveFile.filename]];
+        continueOpenROM = YES;
+        [self downloadSaveFileForROM:[self.saveFiles objectForKey:[dropboxFile.filename stringByAppendingPathExtension:@"gearboy"]]];
     }
     
      
 }
 
-- (void)restClient:(DBRestClient*)client loadedFile:(NSString*)localPath {
+- (void)restClient:(DBRestClient*)client loadedFile:(NSString*)localPath contentType:(NSString*)contentType metadata:(DBMetadata*)metadata {
     NSLog(@"File loaded into path: %@", [localPath lastPathComponent]);
     if (![localPath.pathExtension isEqualToString:@"gearboy"]) {
         isDownloadingROM = NO;
         if (!isDownloadingSaveFile) {
             [MBProgressHUD hideHUDForView:self.navigationController.view animated:YES];
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             [self openRom:[localPath lastPathComponent]];
         }
     } else {
         isDownloadingSaveFile = NO;
+        [[NSFileManager defaultManager] setAttributes:@{NSFileModificationDate : metadata.lastModifiedDate} ofItemAtPath:localPath error:nil];
         if (!isDownloadingROM) {
             [MBProgressHUD hideHUDForView:self.navigationController.view animated:YES];
-            [self openRom:[[localPath lastPathComponent] stringByDeletingPathExtension]];
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+            if (continueOpenROM) {
+                continueOpenROM = NO;
+                [self openRom:[[localPath lastPathComponent] stringByDeletingPathExtension]];
+            }
         }
     }
     
@@ -312,7 +346,9 @@
 
 - (void)restClient:(DBRestClient*)client loadFileFailedWithError:(NSError*)error {
     [MBProgressHUD hideHUDForView:self.navigationController.view animated:YES];
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
     NSLog(@"There was an error loading the file - %@", error);
+    [self showErrorAlertWithMessage:[NSString stringWithFormat:@"Download file error: %@", error.localizedDescription]];
 }
 
 - (void)refreshList:(id)sender {
@@ -338,6 +374,14 @@
 
 #pragma mark - Sync save file
 
+- (void)downloadSaveFileForROM:(DBMetadata *)saveFile {
+    NSLog(@"Downloading save data %@ ...", saveFile.filename);
+    isDownloadingSaveFile = YES;
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+    [[self restClient] loadFile:saveFile.path
+                       intoPath:[[self romPath] stringByAppendingPathComponent:saveFile.filename]];
+}
+
 - (void)syncSaveFileForROM:(NSString *)rom {
     NSString *saveFile = [rom stringByAppendingPathExtension:@"gearboy"];
     NSString *pathToSaveFile = [[self romPath] stringByAppendingPathComponent:saveFile];
@@ -349,6 +393,7 @@
             rev = file.rev;
         }
         isSyncingSaveFile = YES;
+        NSLog(@"Uploading ...");
         [[self restClient] uploadFile:saveFile
                                toPath:@"/"
                         withParentRev:rev
@@ -359,7 +404,6 @@
 - (void)syncSaveFileOfCurrentROMWithBackgroundIdentifier:(UIBackgroundTaskIdentifier)identifier {
     if (!isSyncingSaveFile) {
         if (self.detailViewController.detailItem) {
-            [self.detailViewController.theGLViewController.theEmulator pause];
             backgroundTaskIdentifier = identifier;
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
             [self syncSaveFileForROM:self.detailViewController.detailItem];
@@ -374,6 +418,7 @@
     isSyncingSaveFile = NO;
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
     NSLog(@"File uploaded successfully to path: %@", metadata.path);
+    [self.saveFiles setObject:metadata forKey:metadata.filename];
     if (backgroundTaskIdentifier != UIBackgroundTaskInvalid) {
         [[UIApplication sharedApplication] endBackgroundTask:backgroundTaskIdentifier];
         backgroundTaskIdentifier = UIBackgroundTaskInvalid;
@@ -384,10 +429,35 @@
     isSyncingSaveFile = NO;
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
     NSLog(@"File upload failed with error - %@", error);
+    [self showErrorAlertWithMessage:[NSString stringWithFormat:@"Upload file error: %@", error.localizedDescription]];
     if (backgroundTaskIdentifier != UIBackgroundTaskInvalid) {
         [[UIApplication sharedApplication] endBackgroundTask:backgroundTaskIdentifier];
         backgroundTaskIdentifier = UIBackgroundTaskInvalid;
     }
+}
+
+#pragma mark - UIAlertView
+
+- (void)showErrorAlertWithMessage:(NSString *) message{
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedString(@"Error", nil) message:message delegate:nil cancelButtonTitle:NSLocalizedString(@"Dismiss", nil) otherButtonTitles: nil];
+    [alert show];
+}
+
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    switch (buttonIndex) {
+        case 1:{
+            [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+            continueOpenROM = NO;
+            for (DBMetadata *saveFile in self.updatedSaveFiles) {
+                [self downloadSaveFileForROM:saveFile];
+            }
+            break;
+        }
+        default:{
+            break;
+        }
+    }
+    [self.updatedSaveFiles removeAllObjects];
 }
 
 @end

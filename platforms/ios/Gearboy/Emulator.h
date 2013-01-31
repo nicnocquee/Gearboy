@@ -47,6 +47,7 @@
 -(void)keyPressed: (Gameboy_Keys)key;
 -(void)keyReleased: (Gameboy_Keys)key;
 -(void)pause;
+-(void)save;
 -(void)resume;
 -(BOOL)paused;
 -(void)reset;

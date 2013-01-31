@@ -20,6 +20,7 @@
 #import <UIKit/UIKit.h>
 
 @class DetailViewController;
+@class MasterViewController;
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 
@@ -30,5 +31,7 @@
 @property (strong, nonatomic) UISplitViewController *splitViewController;
 
 @property (strong, nonatomic) DetailViewController *detailViewController;
+
+@property (strong, nonatomic) MasterViewController *masterViewController;
 
 @end

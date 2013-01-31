@@ -32,6 +32,7 @@
 @property (strong, nonatomic) NSMutableArray *dropboxFiles;
 @property (strong , nonatomic) NSArray *allDropboxFiles;
 @property (strong, nonatomic) NSMutableDictionary *saveFiles;
+@property (strong, nonatomic) NSMutableArray *updatedSaveFiles;
 @property (strong, nonatomic) NSArray *sections;
 
 - (void)dropboxDidLinked;

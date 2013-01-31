@@ -36,9 +36,9 @@
 {
     DBSession* dbSession =
     [[DBSession alloc]
-      initWithAppKey:@"YOUR_DROPBOX_APPKEY"
-      appSecret:@"YOUR_DROPBOX_APPSECRET"
-      root:kDBRootAppFolder]; // either kDBRootAppFolder or kDBRootDropbox
+     initWithAppKey:@"q4ms5jzvcy02t23"
+     appSecret:@"laygdzz1vgvl5cz"
+     root:kDBRootAppFolder]; // either kDBRootAppFolder or kDBRootDropbox
 
     [DBSession setSharedSession:dbSession];
     
@@ -50,6 +50,7 @@
         self.navigationController = [[UINavigationController alloc] initWithRootViewController:masterViewController];
         self.navigationController.navigationBar.tintColor = [UIColor blackColor];
         self.window.rootViewController = self.navigationController;
+        self.masterViewController = masterViewController;
     } else {
         MasterViewController *masterViewController = [[MasterViewController alloc] initWithNibName:@"MasterViewController_iPad" bundle:nil];
         UINavigationController *masterNavigationController = [[UINavigationController alloc] initWithRootViewController:masterViewController];
@@ -69,6 +70,7 @@
         self.splitViewController.viewControllers = @[masterNavigationController, detailNavigationController];
         
         self.window.rootViewController = self.splitViewController;
+        self.masterViewController = masterViewController;
     }
     [self.window makeKeyAndVisible];
     return YES;
@@ -86,15 +88,6 @@
 {
     // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later. 
     // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
-    bgTask = [application beginBackgroundTaskWithExpirationHandler:^{
-        // Clean up any unfinished task business by marking where you.
-        // stopped or ending the task outright.
-        [application endBackgroundTask:bgTask];
-        bgTask = UIBackgroundTaskInvalid;
-    }];
-    
-    MasterViewController *master = (MasterViewController *)[self.navigationController.viewControllers objectAtIndex:0];
-    [master syncSaveFileOfCurrentROMWithBackgroundIdentifier:bgTask];
 }
 
 - (void)applicationWillEnterForeground:(UIApplication *)application
@@ -118,8 +111,7 @@
         if ([[DBSession sharedSession] isLinked]) {
             NSLog(@"App linked successfully!");
             // At this point you can start making API calls
-            MasterViewController *master = (MasterViewController *)[self.navigationController.viewControllers objectAtIndex:0];
-            [master dropboxDidLinked];
+            [self.masterViewController dropboxDidLinked];
         }
         return YES;
     }

@@ -93,6 +93,7 @@ const GLfloat tex[] = {0.0f, 0.0f, kGB_TexWidth, 0.0f, 0.0f, kGB_TexHeight, kGB_
 
 -(void)dealloc
 {
+    NSLog(@"dealloc");
     theGearboyCore->SaveRam();
     SafeDeleteArray(theTexture);
     SafeDeleteArray(theFrameBuffer);
@@ -243,10 +244,13 @@ const GLfloat tex[] = {0.0f, 0.0f, kGB_TexWidth, 0.0f, 0.0f, kGB_TexHeight, kGB_
     theGearboyCore->KeyReleased(key);
 }
 
+- (void)save {
+    theGearboyCore->SaveRam();
+}
+
 -(void)pause
 {
     theGearboyCore->Pause(true);
-    theGearboyCore->SaveRam();
 }
 
 -(void)resume

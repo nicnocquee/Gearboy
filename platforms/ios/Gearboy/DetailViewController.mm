@@ -18,6 +18,9 @@
  */
 
 #import "DetailViewController.h"
+#import <DropboxSDK/DropboxSDK.h>
+#import "MasterViewController.h"
+#import "AppDelegate.h"
 
 @interface DetailViewController ()
 @property (strong, nonatomic) UIPopoverController *masterPopoverController;
@@ -55,6 +58,11 @@
     self.view.multipleTouchEnabled = YES;
 
     [self configureView];
+    
+    if ([[DBSession sharedSession] isLinked]) {
+        UIBarButtonItem *rightButton = [[UIBarButtonItem alloc] initWithTitle:@"Sync to Dropbox" style:UIBarButtonItemStyleDone target:self action:@selector(syncTapped:)];
+        [self.navigationItem setRightBarButtonItem:rightButton];
+    }
 }
 
 - (void)viewDidUnload
@@ -137,6 +145,18 @@
     for (UITouch *touch in touches)
     {
         [self _handleTouch : touch];
+    }
+}
+
+#pragma mark - Button
+
+- (void)syncTapped:(id)sender {
+    if (self.detailItem) {
+        [self.theGLViewController.theEmulator save];
+        AppDelegate *delegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
+        if (delegate.masterViewController) {
+            [delegate.masterViewController syncSaveFileOfCurrentROMWithBackgroundIdentifier:UIBackgroundTaskInvalid];
+        }
     }
 }
 
